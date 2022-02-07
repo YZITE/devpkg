@@ -3,23 +3,6 @@ const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
-const Path = struct {
-  items: [][]const u8,
-
-  pub fn format(
-    self: *const @This(),
-    comptime actual_fmt: []const u8,
-    options: std.fmt.FormatOptions,
-    writer: anytype,
-  ) !void {
-    _ = actual_fmt;
-    _ = options;
-    for (self.items) |item| {
-      try writer.print("{c}{s}", .{ std.fs.path.sep, item });
-    }
-  }
-};
-
 // "stolen" from "zig/lib/std/mem.zig", to replace "const T" with "T"
 fn SplitIterator(comptime T: type) type {
     return struct {
@@ -128,12 +111,11 @@ const NameEnt = struct {
 fn runOnDir(
   allocator: Allocator,
   dir: std.fs.Dir,
-  path: *std.ArrayList([]const u8),
+  path: *std.ArrayList(u8),
   writer: anytype,
 ) anyerror!void {
-  const pathfmt = Path { .items = path.items };
   if (path.items.len != 0) {
-    try writer.print("-DIR- {}\n", .{ pathfmt });
+    try writer.print("-DIR- {s}\n", .{ path.items });
   }
 
   var names = std.ArrayList(NameEnt).init(allocator);
@@ -150,10 +132,13 @@ fn runOnDir(
     if (dir.openDir(item.name, .{
       .iterate = true,
     })) |*dir2| {
-      (try path.addOne()).* = item.name;
-      defer { _ = path.pop(); }
+      const opl = path.items.len;
+      (try path.addOne()).* = std.fs.path.sep;
+      try path.appendSlice(item.name);
       defer dir2.close();
       try runOnDir(allocator, dir2.*, path, writer);
+      if (path.items.len <= opl) unreachable;
+      try path.resize(opl);
     } else |err| {
       switch (err) {
         error.NotDir => {},
@@ -183,7 +168,7 @@ fn runOnDir(
       const S = std.os.system.S;
       if (builtin.os.tag != .windows) {
         fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
-          try writer.print("CHM {}{c}{s} ERR {p}", .{ pathfmt, std.fs.path.sep, dup_name, err2 });
+          try writer.print("CHM {s}{c}{s} ERR {p}", .{ path.items, std.fs.path.sep, dup_name, err2 });
         };
       }
       (try names.addOne()).* = .{
@@ -224,7 +209,7 @@ pub fn main() !void {
       std.debug.print("-ERR- detected memory leak", .{});
     }
   }
-  var path = std.ArrayList([]const u8).init(allocator);
+  var path = std.ArrayList(u8).init(allocator);
   defer path.deinit();
 
   var d = try std.fs.cwd().openDir(".", .{ .iterate = true });
