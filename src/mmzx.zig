@@ -194,12 +194,12 @@ fn runOnDir(
   // prune prefix
   var lcs_: []const u8 = undefined;
   {
-    var tmp = try std.ArrayList([]const u8).initCapacity(allocator, names.items.len);
-    defer tmp.deinit();
-    for (names.items) |item| {
-      (tmp.addOne() catch unreachable).* = item.name;
+    var tmp = try allocator.alloc([]const u8, names.items.len);
+    defer allocator.free(tmp);
+    for (names.items) |item, i| {
+      tmp[i] = item.name;
     }
-    lcs_ = lcs(u8, tmp.items);
+    lcs_ = lcs(u8, tmp);
   }
 
   for (names.items) |item| {
