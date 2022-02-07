@@ -90,12 +90,10 @@ test "lcs" {
     "allexa",
   };
   const a: []const []const u8 = a_[0..];
-  const al = lcs(u8, a);
-  try testing.expectEqualSlices("alle"[0..], al);
+  try testing.expectEqualSlices(u8, "alle", lcs(u8, a));
   const b_: [4][]const u8 = .{"allemam", "allex", "b", "bonk"};
   const b: []const []const u8 = b_[0..];
-  const bl = lcs(u8, b);
-  try testing.expectEqualSlices(""[0..], bl);
+  try testing.expectEqualSlices(u8, "", lcs(u8, b));
 }
 
 const NameEnt = struct {
@@ -189,7 +187,7 @@ fn runOnDir(
   for (names.items) |item| {
     const old_name = item.orig_name;
     const new_name = item.name[(lcs_.len)..];
-    if (std.mem.eql(u8, old_name, new_name)) continue;
+    if (std.mem.eql(u8, old_name, new_name) or new_name.len == 0) continue;
     try writer.print("MV {s}: {s} -> {s}\n", .{ path.items, old_name, new_name });
     try dir.rename(old_name, new_name);
   }
@@ -210,8 +208,12 @@ pub fn main() !void {
 
   var d = try std.fs.cwd().openDir(".", .{ .iterate = true });
   defer d.close();
+
+  var arena = std.heap.ArenaAllocator.init(allocator);
+  defer arena.deinit();
+
   try runOnDir(
-    allocator,
+    arena.allocator(),
     d,
     &path,
     stderr,
