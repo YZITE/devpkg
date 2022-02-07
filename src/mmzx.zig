@@ -1,53 +1,16 @@
-const builtin = @import("builtin");
+const ostag = @import("builtin").os.tag;
 const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
-// "stolen" from "zig/lib/std/mem.zig", to replace "const T" with "T"
-fn SplitIterator(comptime T: type) type {
-    return struct {
-        buffer: []T,
-        index: ?usize,
-        delimiter: []const T,
-
-        const Self = @This();
-
-        /// Returns a slice of the next field, or null if splitting is complete.
-        pub fn next(self: *Self) ?[]T {
-            const start = self.index orelse return null;
-            const end = if (std.mem.indexOfPos(T, self.buffer, start, self.delimiter)) |delim_start| blk: {
-                self.index = delim_start + self.delimiter.len;
-                break :blk delim_start;
-            } else blk: {
-                self.index = null;
-                break :blk self.buffer.len;
-            };
-            return self.buffer[start..end];
-        }
-
-        /// Returns a slice of the remaining bytes. Does not affect iterator state.
-        pub fn rest(self: Self) []const T {
-            const end = self.buffer.len;
-            const start = self.index orelse end;
-            return self.buffer[start..end];
-        }
-    };
-}
-
-const knownExts: []const []const u8 = &[2][]const u8 {
-    "avi",
-    "jpg",
-  };
-
 fn normalizeExt(name: []u8) ?[]u8 {
-  var iter = SplitIterator(u8) {
-    .index = 0,
-    .buffer = name,
-    .delimiter = ".",
-  };
-  var last_item: ?[]u8 = null;
-  while (iter.next()) |item| last_item = item;
-  const ret = last_item orelse return null;
+  var start: usize = 0;
+  // search for last segment after "."
+  while (std.mem.indexOfPos(u8, name, start, ".")) |delim_start| {
+    start = delim_start + 1;
+  }
+  if (start == 0) return null;
+  const ret = name[start..];
   for (ret) |*c| {
     if (c.* >= 'A' and c.* <= 'Z')
       c.* += 'a' - 'A';
@@ -56,6 +19,10 @@ fn normalizeExt(name: []u8) ?[]u8 {
 }
 
 fn hasKnownExt(ext: []const u8) bool {
+  const knownExts: []const []const u8 = &[2][]const u8 {
+    "avi",
+    "jpg",
+  };
   for (knownExts) |ext2|
     if (std.mem.eql(u8, ext, ext2))
       return true;
@@ -158,7 +125,7 @@ fn runOnDir(
         }
       };
       const S = std.os.system.S;
-      if (builtin.os.tag != .windows) {
+      if (ostag != .windows) {
         fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
           try writer.print("CHM {s}{c}{s} ERR {p}", .{ path.items, std.fs.path.sep, dup_name, err2 });
         };
