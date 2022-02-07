@@ -82,17 +82,15 @@ fn lcs(comptime t: type, items: []const []const t) []const t {
 }
 
 test "lcs" {
-  const a_: [5][]const u8 = .{
+  const a: []const []const u8 = &.{
     "allemam",
     "allem",
     "allex",
     "allexifiy",
     "allexa",
   };
-  const a: []const []const u8 = a_[0..];
   try testing.expectEqualSlices(u8, "alle", lcs(u8, a));
-  const b_: [4][]const u8 = .{"allemam", "allex", "b", "bonk"};
-  const b: []const []const u8 = b_[0..];
+  const b: []const []const u8 = &.{"allemam", "allex", "b", "bonk"};
   try testing.expectEqualSlices(u8, "", lcs(u8, b));
 }
 
