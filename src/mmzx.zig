@@ -114,10 +114,6 @@ fn runOnDir(
   path: *std.ArrayList(u8),
   writer: anytype,
 ) anyerror!void {
-  if (path.items.len != 0) {
-    try writer.print("-DIR- {s}\n", .{ path.items });
-  }
-
   var names = std.ArrayList(NameEnt).init(allocator);
   defer {
     for (names.items) |*item| item.deinit(allocator);
@@ -194,7 +190,7 @@ fn runOnDir(
     const old_name = item.orig_name;
     const new_name = item.name[(lcs_.len)..];
     if (std.mem.eql(u8, old_name, new_name)) continue;
-    try writer.print("MV {s} -> {s}\n", .{ old_name, new_name });
+    try writer.print("MV {s}: {s} -> {s}\n", .{ path.items, old_name, new_name });
     try dir.rename(old_name, new_name);
   }
 }
