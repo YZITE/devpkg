@@ -3,19 +3,20 @@ const std = @import("std");
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
 
-fn normalizeExt(name: []u8) ?[]u8 {
+fn findExt(name: []const u8) usize {
   var start: usize = 0;
   // search for last segment after "."
   while (std.mem.indexOfPos(u8, name, start, ".")) |delim_start| {
     start = delim_start + 1;
   }
-  if (start == 0) return null;
-  const ret = name[start..];
-  for (ret) |*c| {
+  return start;
+}
+
+fn normalizeExt(ext: []u8) void {
+  for (ext) |*c| {
     if (c.* >= 'A' and c.* <= 'Z')
       c.* += 'a' - 'A';
   }
-  return ret;
 }
 
 fn hasKnownExt(ext: []const u8) bool {
@@ -30,10 +31,7 @@ fn hasKnownExt(ext: []const u8) bool {
 }
 
 fn lcs(comptime t: type, items: []const []const t) []const t {
-  if (items.len == 0) {
-    const EMPTY: [0]t = .{};
-    return EMPTY[0..];
-  }
+  if (items.len == 0) return &@as([0]t, .{});
   var ret = items[0];
   for (items[1..]) |item| {
     for (item) |c, i| {
@@ -66,8 +64,11 @@ const NameEnt = struct {
   name: []const u8,
 
   pub fn deinit(self: *@This(), allocator: Allocator) void {
-    allocator.free(self.orig_name);
+    if (self.orig_name.ptr != self.name.ptr) {
+      allocator.free(self.orig_name);
+    }
     allocator.free(self.name);
+    self.* = undefined;
   }
 };
 
@@ -105,27 +106,36 @@ fn runOnDir(
         else => return err,
       }
       // we got a file
-      const dup_name_old = try allocator.dupe(u8, item.name);
+      const extoffset = findExt(item.name);
+      if (extoffset == 0) continue;
       var dup_name = try allocator.dupe(u8, item.name);
       // do this to avoid special-casing 'continue'
       var dup_name_reg = false;
       defer {
-        if (!dup_name_reg) {
-          allocator.free(dup_name_old);
+        if (!dup_name_reg)
           allocator.free(dup_name);
-        }
       }
-      const ext = normalizeExt(dup_name);
-      if (ext == null or !hasKnownExt(ext.?))
-        continue;
+      const ext = dup_name[extoffset..];
+      normalizeExt(ext);
+      if (!hasKnownExt(ext)) continue;
+
+      const dup_name_old = if (!std.mem.eql(u8, item.name, dup_name))
+        try allocator.dupe(u8, item.name)
+      else
+        dup_name;
+      defer {
+        if (!dup_name_reg and dup_name_old.ptr != dup_name.ptr)
+          allocator.free(dup_name_old);
+      }
+
       var fh = dir.openFile(item.name, .{}) catch |err2| {
         switch (err2) {
           error.FileNotFound => continue,
           else => return err2,
         }
       };
-      const S = std.os.system.S;
-      if (ostag != .windows) {
+      if (comptime ostag != .windows) {
+        const S = std.os.system.S;
         fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
           try writer.print("CHM {s}{c}{s} ERR {p}", .{ path.items, std.fs.path.sep, dup_name, err2 });
         };
