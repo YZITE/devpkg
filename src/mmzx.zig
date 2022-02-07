@@ -152,9 +152,8 @@ fn runOnDir(
     })) |*dir2| {
       (try path.addOne()).* = item.name;
       defer { _ = path.pop(); }
-      const tmp = runOnDir(allocator, dir2.*, path, writer);
-      dir2.close();
-      (tmp) catch |err| return err;
+      defer dir2.close();
+      try runOnDir(allocator, dir2.*, path, writer);
     } else |err| {
       switch (err) {
         error.NotDir => {},
@@ -228,7 +227,8 @@ pub fn main() !void {
   var path = std.ArrayList([]const u8).init(allocator);
   defer path.deinit();
 
-  const d = std.fs.cwd();
+  var d = try std.fs.cwd().openDir(".", .{ .iterate = true });
+  defer d.close();
   try runOnDir(
     allocator,
     d,
