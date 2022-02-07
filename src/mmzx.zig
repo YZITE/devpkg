@@ -127,7 +127,7 @@ const NameEnt = struct {
 
 fn runOnDir(
   allocator: Allocator,
-  dir: *const std.fs.Dir,
+  dir: std.fs.Dir,
   path: *std.ArrayList([]const u8),
   writer: anytype,
 ) anyerror!void {
@@ -143,12 +143,16 @@ fn runOnDir(
   }
   var iter = dir.iterate();
   while (try iter.next()) |item| {
+    if (item.name.len == 0 or item.name[0] == '.') {
+      // skip hidden items
+      continue;
+    }
     if (dir.openDir(item.name, .{
       .iterate = true,
     })) |*dir2| {
       (try path.addOne()).* = item.name;
       defer { _ = path.pop(); }
-      const tmp = runOnDir(allocator, dir2, path, writer);
+      const tmp = runOnDir(allocator, dir2.*, path, writer);
       dir2.close();
       (tmp) catch |err| return err;
     } else |err| {
@@ -227,7 +231,7 @@ pub fn main() !void {
   const d = std.fs.cwd();
   try runOnDir(
     allocator,
-    &d,
+    d,
     &path,
     stderr,
   );
