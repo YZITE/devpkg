@@ -133,7 +133,7 @@ fn runOnDir(
 ) anyerror!void {
   const pathfmt = Path { .items = path.items };
   if (path.items.len != 0) {
-    try writer.print("-DIR- {s}\n", pathfmt);
+    try writer.print("-DIR- {}\n", .{ pathfmt });
   }
 
   var names = std.ArrayList(NameEnt).init(allocator);
@@ -183,7 +183,7 @@ fn runOnDir(
       const S = std.os.system.S;
       if (builtin.os.tag != .windows) {
         fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
-          try writer.print("CHM {s}{c}{s} ERR {p}", .{ pathfmt, std.fs.path.sep, dup_name, err2 });
+          try writer.print("CHM {}{c}{s} ERR {p}", .{ pathfmt, std.fs.path.sep, dup_name, err2 });
         };
       }
       (try names.addOne()).* = .{
