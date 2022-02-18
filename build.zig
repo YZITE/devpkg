@@ -30,4 +30,8 @@ pub fn build(b: *std.build.Builder) void {
 
     const mmzx_run_step = b.step("run-mmzx", "Run mmzx");
     mmzx_run_step.dependOn(&mmzx_run_cmd.step);
+
+    const all = b.step("all", "Build all executables");
+    all.dependOn(test_step);
+    all.dependOn(&mmzx.step);
 }

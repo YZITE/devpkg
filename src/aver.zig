@@ -32,40 +32,34 @@ test "aver" {
   a.update(2.0);  try expeq(4.0, a.value());
 }
 
-pub fn RoundRobinAver(
-  comptime logsize: comptime_int,
-) type {
-  return struct {
-    accu: [logsize]f64,
-    pos: u32,
+pub const RoundRobinAver = struct {
+  accu: []f64,
+  pos: usize,
 
-    const Self = @This();
+  const Self = @This();
 
-    pub const default = Self {
-      .accu = .{ 0 } ** logsize,
-      .pos = 0,
-    };
-
-    pub fn value(self: *const Self) f64 {
-      @setFloatMode(.Optimized);
-      var ret: f64 = 0.0;
-      for (self.accu) |item| {
-        ret += item;
-      }
-      return ret / @intToFloat(f64, self.accu.len);
+  pub fn value(self: *const Self) f64 {
+    @setFloatMode(.Optimized);
+    var ret: f64 = 0.0;
+    for (self.accu) |item| {
+      ret += item;
     }
+    return ret / @intToFloat(f64, self.accu.len);
+  }
 
-    pub fn update(self: *Self, nval: f64) void {
-      if (self.pos >= logsize) unreachable;
-      self.accu[self.pos] = nval;
-      self.pos = (self.pos + 1) % logsize;
-    }
-  };
-}
+  pub fn update(self: *Self, nval: f64) void {
+    self.pos %= self.accu.len;
+    self.accu[self.pos] = nval;
+    self.pos += 1;
+  }
+};
 
 test "rraver" {
-  const Rra = RoundRobinAver(3);
-  var a = Rra.default;
+  var abk: [3]f64 = .{0.0} ** 3;
+  var a = RoundRobinAver {
+    .accu = &abk,
+    .pos = 0,
+  };
   try expeq(0.0, a.value());
 
   a.update(12.0); try expeq(4.0, a.value());
