@@ -12,11 +12,23 @@ fn findExt(name: []const u8) usize {
     return start;
 }
 
+test "extension: find" {
+    const e = "this.is.an.file.name";
+    try testing.expectEqual(@as(usize, 16), findExt(e));
+}
+
 fn normalizeExt(ext: []u8) void {
     for (ext) |*c| {
         if (c.* >= 'A' and c.* <= 'Z')
             c.* += 'a' - 'A';
     }
+}
+
+test "extension: normalize" {
+    var e: [40]u8 = .{0} ** 40;
+    std.mem.copy(u8, &e, "EveryThingMightBe Haa.-");
+    normalizeExt(&e);
+    try testing.expectEqualSlices(u8, e[0..23], "everythingmightbe haa.-");
 }
 
 fn hasKnownExt(ext: []const u8) bool {
@@ -108,7 +120,7 @@ fn runOnDir(
             }
             // we got a file
             const extoffset = findExt(item.name);
-            if (extoffset == 0) continue;
+            if (extoffset == item.name.len) continue;
             var dup_name = try allocator.dupe(u8, item.name);
             // do this to avoid special-casing 'continue'
             var dup_name_reg = false;
@@ -187,7 +199,7 @@ fn runOnDir(
 }
 
 pub fn main() !void {
-    var stderr = std.io.getStdErr().writer();
+    var stderr = std.io.getStdErr();
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer {
@@ -209,6 +221,6 @@ pub fn main() !void {
         arena.allocator(),
         d,
         &path,
-        stderr,
+        stderr.writer(),
     );
 }

@@ -34,4 +34,5 @@ pub fn build(b: *std.build.Builder) void {
     const all = b.step("all", "Build all executables");
     all.dependOn(test_step);
     all.dependOn(&mmzx.step);
+    all.dependOn(b.getInstallStep());
 }
