@@ -141,18 +141,6 @@ fn runOnDir(
                     allocator.free(dup_name_old);
             }
 
-            var fh = dir.openFile(item.name, .{}) catch |err2| {
-                switch (err2) {
-                    error.FileNotFound => continue,
-                    else => return err2,
-                }
-            };
-            if (comptime ostag != .windows) {
-                const S = std.os.system.S;
-                fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
-                    try writer.print("CHM {s}{c}{s} ERR {p}", .{ path.items, std.fs.path.sep, dup_name, err2 });
-                };
-            }
             (try names.addOne()).* = .{
                 .orig_name = dup_name_old,
                 .name = dup_name,
@@ -172,11 +160,29 @@ fn runOnDir(
         lcs_ = lcs(u8, tmp);
     }
 
+    if (path.items.len == 0) {
+        try writer.print("/:\n", .{});
+    } else {
+        try writer.print("{s}:\n", .{path.items});
+    }
     for (names.items) |item| {
         const old_name = item.orig_name;
+        if (comptime ostag != .windows) {
+            var fh = dir.openFile(old_name, .{}) catch |err2| {
+                switch (err2) {
+                    error.FileNotFound => continue,
+                    else => return err2,
+                }
+            };
+            defer fh.close();
+            const S = std.os.system.S;
+            fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
+                try writer.print("\tCHM {s} ERR {p}", .{ old_name, err2 });
+            };
+        }
         const new_name = item.name[(lcs_.len)..];
         if (std.mem.eql(u8, old_name, new_name) or new_name.len == 0) continue;
-        try writer.print("MV {s}: {s} -> {s} ", .{ path.items, old_name, new_name });
+        try writer.print("\tMV {s} -> {s} ", .{ old_name, new_name });
         const accres = if (dir.access(new_name, .{
             .mode = .write_only,
         })) error.PathAlreadyExists else |err| err;
