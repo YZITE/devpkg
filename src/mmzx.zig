@@ -20,9 +20,10 @@ fn normalizeExt(ext: []u8) void {
 }
 
 fn hasKnownExt(ext: []const u8) bool {
-    const knownExts: []const []const u8 = &[2][]const u8{
+    const knownExts: []const []const u8 = &[_][]const u8{
         "avi",
         "jpg",
+        "mts",
     };
     for (knownExts) |ext2|
         if (std.mem.eql(u8, ext, ext2))
