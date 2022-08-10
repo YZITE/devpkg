@@ -87,7 +87,7 @@ const NameEnt = struct {
 
 fn runOnDir(
     allocator: Allocator,
-    dir: std.fs.Dir,
+    dir: std.fs.IterableDir,
     path: *std.ArrayList(u8),
     writer: anytype,
 ) anyerror!void {
@@ -102,9 +102,7 @@ fn runOnDir(
             // skip hidden items
             continue;
         }
-        if (dir.openDir(item.name, .{
-            .iterate = true,
-        })) |*dir2| {
+        if (dir.dir.openIterableDir(item.name, .{})) |*dir2| {
             const opl = path.items.len;
             (try path.addOne()).* = std.fs.path.sep;
             try path.appendSlice(item.name);
@@ -168,7 +166,7 @@ fn runOnDir(
     for (names.items) |item| {
         const old_name = item.orig_name;
         if (comptime ostag != .windows) {
-            var fh = dir.openFile(old_name, .{}) catch |err2| {
+            var fh = dir.dir.openFile(old_name, .{}) catch |err2| {
                 switch (err2) {
                     error.FileNotFound => continue,
                     else => return err2,
@@ -177,17 +175,17 @@ fn runOnDir(
             defer fh.close();
             const S = std.os.system.S;
             fh.chmod(S.IRUSR | S.IWUSR | S.IRGRP | S.IROTH) catch |err2| {
-                try writer.print("\tCHM {s} ERR {p}", .{ old_name, err2 });
+                try writer.print("\tCHM {s} ERR {s}", .{ old_name, @errorName(err2) });
             };
         }
         const new_name = item.name[(lcs_.len)..];
         if (std.mem.eql(u8, old_name, new_name) or new_name.len == 0) continue;
         try writer.print("\tMV {s} -> {s} ", .{ old_name, new_name });
-        const accres = if (dir.access(new_name, .{
+        const accres = if (dir.dir.access(new_name, .{
             .mode = .write_only,
         })) error.PathAlreadyExists else |err| err;
         if (accres == error.FileNotFound) {
-            if (dir.rename(old_name, new_name)) {
+            if (dir.dir.rename(old_name, new_name)) {
                 try writer.print("OK", .{});
             } else |err| {
                 try writer.print("ERR: rename failed; {}", .{err});
@@ -217,7 +215,7 @@ pub fn main() !void {
     var path = std.ArrayList(u8).init(allocator);
     defer path.deinit();
 
-    var d = try std.fs.cwd().openDir(".", .{ .iterate = true });
+    var d = try std.fs.cwd().openIterableDir(".", .{});
     defer d.close();
 
     var arena = std.heap.ArenaAllocator.init(allocator);
